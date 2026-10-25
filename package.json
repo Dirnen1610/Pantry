@@ -8,12 +8,14 @@
     "@capacitor/cli": "^7.0.0",
     "@capacitor/core": "^7.0.0",
     "@capacitor/local-notifications": "^7.0.0",
-    "@capacitor-mlkit/barcode-scanning": "^7.0.0"
+    "@capacitor-mlkit/barcode-scanning": "^7.0.0",
+    "firebase": "^11.0.0",
+    "@capacitor/share": "^7.0.0"
   },
   "devDependencies": {
     "esbuild": "^0.25.0"
   },
   "scripts": {
-    "bridge": "esbuild src/native.js --bundle --format=iife --target=es2019 --outfile=www/native.js"
+    "bridge": "esbuild src/native.js --bundle --format=iife --target=chrome90 --outfile=www/native.js"
   }
 }

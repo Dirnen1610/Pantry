@@ -287,6 +287,18 @@ h4{font-size:15px;font-weight:700;margin:20px 0 10px}
 .steps li::before{content:counter(s);flex:none;width:28px;height:28px;border-radius:50%;background:var(--sel);color:var(--onsel);display:grid;place-items:center;font-weight:700;font-size:13px}
 .back svg{transform:rotate(180deg)}
 .note{color:var(--mute);font-size:13px;margin:10px 0 0}
+/* Foyer */
+.codebox{background:var(--night);color:var(--onnight);border-radius:22px;padding:18px;margin-top:16px;text-align:center}
+.codebox small{display:block;color:var(--nightmute);font-size:13px;font-weight:600}
+.codebox b{display:block;font-size:38px;font-weight:800;letter-spacing:.08em;margin:4px 0 8px;font-variant-numeric:tabular-nums}
+.syn{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--nightmute)}
+.syn i{width:8px;height:8px;border-radius:50%;background:var(--amber)}
+.syn.ok i{background:var(--teal)}.syn.error i{background:var(--red)}
+.codein{font-size:22px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;text-align:center;height:58px;margin-top:16px}
+.ib .sdot{position:absolute;bottom:10px;right:10px;width:9px;height:9px;border-radius:50%;background:var(--teal);box-shadow:0 0 0 2px var(--card)}
+.ib .sdot.error{background:var(--red)}.ib .sdot.offline,.ib .sdot.connecting{background:var(--amber)}
+.btn[disabled]{opacity:.55}
+.hbtns{display:flex;gap:8px}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 @media (max-width:360px){h1{font-size:26px}.gc{min-height:166px}.lc .step span{min-width:36px}}
 </style>
@@ -345,6 +357,9 @@ const P={
  egg:'<path d="M12 22c6.23-.05 7.87-5.57 7.5-10-.36-4.34-3.95-9.96-7.5-10-3.55.04-7.14 5.66-7.5 10-.37 4.43 1.27 9.95 7.5 10z"/>',
  jar:'<path d="M8 2h8M7.5 5h9"/><path d="M7.5 5C5.8 6 4.5 7.6 4.5 10v9a3 3 0 0 0 3 3h9a3 3 0 0 0 3-3v-9c0-2.4-1.3-4-3-5"/><path d="M4.5 12h15"/>',
  bottle:'<path d="M10 2h4M10 2v4l-2 3v11a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2V9l-2-3V2"/><path d="M8 13h8"/>',
+ home:'<path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1Z"/>',
+ users:'<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M18 14.2a6.5 6.5 0 0 1 3.5 5.8"/>',
+ share:'<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 13.5 6.8 4M15.4 6.5l-6.8 4"/>',
  avo:'<path d="M12 2.5c-3 0-5 4-6 8-1.2 4.6 1.3 11 6 11s7.2-6.4 6-11c-1-4-3-8-6-8Z"/><circle cx="12" cy="15" r="3"/>'
 };
 const ic=n=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[n]||P.box}</svg>`;
@@ -556,7 +571,7 @@ function load(){
 function persist(){try{localStorage.setItem(K2,JSON.stringify(S,(k,v)=>k==='_n'?undefined:v))}catch(e){}}
 function saveUI(){try{localStorage.setItem(KU,JSON.stringify({view:ui.view,sort:ui.sort,lastSpace:ui.lastSpace}))}catch(e){}}
 let schedT=null;
-function save(){persist();clearTimeout(schedT);schedT=setTimeout(schedule,700)}
+function save(){persist();pushDiff();clearTimeout(schedT);schedT=setTimeout(schedule,700)}
 const spaceExists=id=>S.spaces.some(s=>s.id===id);
 const spaceOf=id=>S.spaces.find(s=>s.id===id)||{name:'—',type:'armoire',cap:1};
 const urgent=()=>S.items.filter(i=>days(i.exp)<=3).sort(byExp);
@@ -604,6 +619,156 @@ function webNotify(){
  }catch(e){}
 }
 
+/* Foyer partagé (synchro en direct) */
+const FB=window.GM_FB||null;
+const KH='pantry.foyer',COLS=['items','spaces','shop','codes','log'];
+const H={code:null,status:'off',err:'',stops:[],synced:{},loaded:{},live:false};
+try{H.code=JSON.parse(localStorage.getItem(KH)||'null')}catch(e){}
+function saveH(){try{localStorage.setItem(KH,JSON.stringify(H.code))}catch(e){}}
+const canon=o=>JSON.stringify(o,(k,v)=>k==='_n'?undefined:(v&&typeof v==='object'&&!Array.isArray(v)?Object.keys(v).sort().reduce((a,x)=>(a[x]=v[x],a),{}):v));
+const CODE_AB='ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+const genCode=()=>Array.from({length:6},()=>CODE_AB[Math.floor(Math.random()*CODE_AB.length)]).join('');
+const normCode=s=>String(s||'').toUpperCase().replace(/[^A-Z0-9]/g,'').replace(/O/g,'0').replace(/[IL]/g,'1');
+const fmtCode=c=>c?c.slice(0,3)+'-'+c.slice(3):'';
+const withTimeout=(p,ms)=>Promise.race([p,new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),ms||15000))]);
+function docsOf(col){
+ const m=new Map();
+ if(col==='codes'){Object.keys(S.codes).forEach(k=>m.set(encodeURIComponent(k),Object.assign({},S.codes[k],{code:k})));return m}
+ const now=Date.now();
+ S[col].forEach((x,k)=>{if(!x.id)x.id=uid();if(col==='shop'&&!x.t)x.t=now-k;m.set(String(x.id),x)});
+ return m;
+}
+function pushDiff(){
+ if(!FB||!H.code||!H.live)return;
+ const ops=[];
+ COLS.forEach(col=>{
+  const cur=docsOf(col),prev=H.synced[col]||new Map(),next=new Map();
+  cur.forEach((v,id)=>{const c=canon(v);next.set(id,c);if(prev.get(id)!==c)ops.push({col,id,data:JSON.parse(c)})});
+  prev.forEach((c,id)=>{if(!cur.has(id))ops.push({col,id,data:null})});
+  H.synced[col]=next;
+ });
+ if(ops.length)Promise.resolve().then(()=>FB.write(H.code,ops)).catch(syncErr);
+}
+function applyRemote(col,docs){
+ if(col==='spaces'&&!docs.length)return false;
+ H.synced[col]=new Map(docs.map(d=>[col==='codes'?encodeURIComponent(d.code):String(d.id),canon(d)]));
+ if(col==='codes'){const o={};docs.forEach(d=>{const c=Object.assign({},d);delete c.code;o[d.code]=c});S.codes=o;return true}
+ const byId=new Map(S[col].map(x=>[String(x.id),x]));
+ const out=docs.map(d=>{const ex=byId.get(String(d.id));
+  if(ex){Object.keys(ex).forEach(k=>{if(k!=='_n'&&!(k in d))delete ex[k]});return Object.assign(ex,d)}
+  return Object.assign({},d)});
+ if(col==='shop')out.sort((a,b)=>(b.t||0)-(a.t||0));
+ if(col==='spaces')out.sort((a,b)=>a.id-b.id);
+ S[col]=out;return true;
+}
+function onRemote(col,docs,meta){
+ const changed=applyRemote(col,docs);
+ H.loaded[col]=true;
+ H.status=meta&&meta.fromCache?'offline':'ok';H.err='';
+ if(!H.live&&COLS.every(c=>H.loaded[c]))H.live=true;
+ if(col==='spaces'&&!changed&&H.live)pushDiff();
+ afterRemote();
+}
+let remT=null;
+function afterRemote(){
+ clearTimeout(remT);
+ remT=setTimeout(()=>{
+  persist();clearTimeout(schedT);schedT=setTimeout(schedule,700);
+  if(sheet&&sheet.type==='item'&&!S.items.includes(sheet.item)){closeSheet();toast('Ce produit vient d’être retiré par quelqu’un du foyer');return}
+  const a=document.activeElement;
+  if(a&&a.id==='q'){renderInvList();renderNav();return}
+  if(a&&a.id==='shopIn')return;
+  render();
+  if(sheet&&(sheet.type==='foyer'||sheet.type==='recipe'&&!sheet.cook))renderSheet();
+ },60);
+}
+function startSync(){
+ stopSync();if(!FB||!H.code)return;
+ H.status='connecting';H.loaded={};
+ H.stops=COLS.map(col=>FB.listen(H.code,col,(docs,meta)=>onRemote(col,docs,meta),syncErr));
+}
+function stopSync(){H.stops.forEach(f=>{try{f()}catch(e){}});H.stops=[];H.live=false}
+function syncErr(e){
+ H.status='error';H.err=String(e&&(e.code||e.message)||e);
+ try{console.error('GM_SYNC',H.err)}catch(x){}
+ afterRemote();
+}
+function errText(e){
+ const m=String(e&&(e.code||e.message)||e);
+ if(/timeout|unavailable|network/i.test(m))return 'Pas de connexion. Réessaie quand tu as du réseau.';
+ if(/permission/i.test(m))return 'Firebase refuse l’accès : vérifie les règles Firestore (étape 4) et la connexion anonyme (étape 2).';
+ if(/admin-restricted|operation-not-allowed/i.test(m))return 'La connexion anonyme n’est pas activée dans Firebase (étape 2).';
+ return 'Erreur : '+m;
+}
+const statusText=()=>({ok:'Synchronisé en direct',offline:'Hors ligne : la synchro reprendra avec le réseau',connecting:'Connexion…',error:errText(H.err)}[H.status]||'');
+async function foyerCreate(){
+ sheet.busy='Création du foyer…';sheet.err='';renderSheet();
+ try{
+  let code=genCode();
+  for(let i=0;i<4&&(await withTimeout(FB.exists(code)));i++)code=genCode();
+  await withTimeout(FB.create(code));
+  H.code=code;saveH();H.synced={};H.live=true;pushDiff();startSync();
+  sheet.busy=null;renderSheet();toast('Foyer créé : partage le code');
+ }catch(e){sheet.busy=null;sheet.err=errText(e);renderSheet()}
+}
+async function foyerJoin(){
+ const code=normCode(sheet.codeIn);
+ if(code.length!==6){sheet.err='Le code fait 6 caractères, par exemple K7P-4QX.';renderSheet();return}
+ sheet.busy='Connexion au foyer…';sheet.err='';renderSheet();
+ try{
+  if(!(await withTimeout(FB.exists(code)))){sheet.busy=null;sheet.err='Aucun foyer avec ce code. Vérifie-le avec la personne qui l’a créé.';renderSheet();return}
+  if(sheet.merge){
+   const rs=await withTimeout(FB.getAll(code,'spaces')),byName=new Map(rs.map(s=>[norm(s.name),s]));
+   const keep=[];
+   S.spaces.forEach(s=>{const r=byName.get(norm(s.name));
+    if(r){S.items.forEach(i=>{if(i.space===s.id)i.space=r.id});Object.keys(S.codes).forEach(k=>{if(S.codes[k].space===s.id)S.codes[k].space=r.id});if(ui.lastSpace===s.id)ui.lastSpace=r.id}
+    else keep.push(s)});
+   S.spaces=rs.map(x=>Object.assign({},x)).concat(keep).sort((a,b)=>a.id-b.id);
+   H.code=code;saveH();H.synced={};H.live=true;pushDiff();
+  }else{
+   S.items=[];S.shop=[];S.log=[];S.codes={};
+   H.code=code;saveH();H.synced={};H.live=false;
+  }
+  persist();if(ui.filter!=='all')ui.filter='all';startSync();
+  sheet.busy=null;sheet.mode=null;renderSheet();render();toast('Tu as rejoint le foyer');
+ }catch(e){sheet.busy=null;sheet.err=errText(e);renderSheet()}
+}
+function foyerLeave(){stopSync();H.code=null;H.status='off';saveH();renderSheet();render();toast('Tu as quitté le foyer. Tes produits restent sur ce téléphone.')}
+function foyerShare(){
+ const text=`Rejoins notre garde-manger : ouvre l’appli Garde-manger, touche l’icône du foyer et entre le code ${fmtCode(H.code)}`;
+ const N=window.GM_NATIVE;
+ if(N&&N.Share){N.Share.share({title:'Code du foyer',text}).catch(()=>{});return}
+ if(navigator.share){navigator.share({text}).catch(()=>{});return}
+ try{navigator.clipboard.writeText(fmtCode(H.code)).then(()=>toast('Code copié'))}catch(e){}
+}
+function foyerSheet(){
+ const head=`<h2 class="shh">Foyer partagé</h2>`;
+ if(!FB)return head+`<p class="sub" style="margin-bottom:8px">${native?'Le partage n’est pas encore configuré dans cette version de l’appli.':'Le partage du foyer fonctionne dans l’appli Android.'}</p>`;
+ const busy=sheet.busy?`<p class="note">${esc(sheet.busy)}</p>`:'';
+ const err=sheet.err?`<div class="whybox">${ic('alert')}<span>${esc(sheet.err)}</span></div>`:'';
+ if(H.code){
+  return head+`<p class="sub">Tout le monde dans le foyer voit le même garde-manger, les mêmes espaces et la même liste de courses.</p>
+  <div class="codebox"><small>Code du foyer</small><b>${fmtCode(H.code)}</b><span class="syn ${H.status}"><i></i>${esc(statusText())}</span></div>
+  <div class="acts"><button class="btn pri" data-act="foyer-share">${ic('share')}<span>Partager le code</span></button></div>
+  <p class="note">Sur l’autre téléphone : icône du foyer, puis « Rejoindre avec un code ».</p>
+  <button class="btn sec danger" style="width:100%;margin-top:18px" data-act="foyer-leave"><span>Quitter le foyer</span></button>`;
+ }
+ if(sheet.mode==='join'){
+  return head+`<p class="sub">Entre le code affiché sur le téléphone de l’autre personne.</p>
+  <input class="field codein" data-ff="code" value="${esc(sheet.codeIn||'')}" placeholder="K7P-4QX" maxlength="7" autocomplete="off" autocapitalize="characters" aria-label="Code du foyer">
+  <button class="ing ${sheet.merge?'have':''}" style="margin-top:12px" data-act="foyer-merge" aria-pressed="${!!sheet.merge}"><span class="cb">${ic('check')}</span><span class="t"><b>Ajouter mes produits au foyer</b><small>${S.items.length} ${pl(S.items.length,'produit','produits')} sur ce téléphone</small></span></button>
+  ${err}${busy}
+  <div class="acts"><button class="btn sec" data-act="foyer-back"><span>Retour</span></button><button class="btn pri" data-act="foyer-join" ${sheet.busy?'disabled':''}><span>Rejoindre</span></button></div>`;
+ }
+ return head+`<p class="sub">Partage ton garde-manger avec les personnes qui vivent avec toi : ce que l’un scanne, l’autre le voit, et ce que l’un cuisine disparaît chez tout le monde.</p>
+ ${err}${busy}
+ <div class="opts" style="margin-top:18px;display:grid;gap:10px">
+  <button class="btn pri" data-act="foyer-create" ${sheet.busy?'disabled':''}>${ic('home')}<span>Créer un foyer</span></button>
+  <button class="btn sec" data-act="foyer-joinmode"><span>Rejoindre avec un code</span></button>
+ </div>
+ <p class="note">Tes produits actuels seront ajoutés au nouveau foyer.</p>`;
+}
+
 /* Rendu : inventaire */
 function chip(id,name,n){return `<button class="chip" data-act="filter" data-f="${id}" aria-pressed="${String(ui.filter)===String(id)}">${esc(name)}<span class="cnt">${n}</span></button>`}
 function invItems(){
@@ -628,7 +793,7 @@ function renderInv(){
  if(ui.filter!=='all'&&!spaceExists(ui.filter))ui.filter='all';
  $('app').innerHTML=`
  <header class="top"><div><p class="eyebrow">${dateStr}</p><h1>Mon garde-manger</h1></div>
-  <button class="ib" data-act="tab" data-tab="alerts" aria-label="Alertes">${ic('bell')}${urg.length?'<span class="dot"></span>':''}</button></header>
+  <div class="hbtns"><button class="ib" data-act="foyer" aria-label="Foyer partagé">${ic('users')}${H.code?`<span class="sdot ${H.status}"></span>`:''}</button><button class="ib" data-act="tab" data-tab="alerts" aria-label="Alertes">${ic('bell')}${urg.length?'<span class="dot"></span>':''}</button></div></header>
  <div class="searchrow"><label class="search">${ic('search')}<input id="q" type="search" placeholder="Rechercher un produit…" value="${esc(ui.q)}" autocomplete="off" aria-label="Rechercher un produit"></label>
   <button class="ib dark tall" data-act="sort" aria-label="Trier les produits">${ic('sliders')}</button></div>
  <div class="stats">
@@ -808,8 +973,8 @@ function sortSheet(){
 function openSheet(s){sheet=s;$('backdrop').classList.remove('hidden');$('sheet').classList.remove('hidden');renderSheet(true)}
 function renderSheet(first){
  const el=$('sheet'),top=el.scrollTop;
- el.setAttribute('aria-label',{item:'Produit',space:'Espace',recipe:'Recette',sort:'Tri'}[sheet.type]);
- el.innerHTML='<div class="grab"></div>'+(sheet.type==='item'?itemSheet():sheet.type==='space'?spaceSheet():sheet.type==='recipe'?recipeSheet():sortSheet());
+ el.setAttribute('aria-label',{item:'Produit',space:'Espace',recipe:'Recette',foyer:'Foyer',sort:'Tri'}[sheet.type]);
+ el.innerHTML='<div class="grab"></div>'+(sheet.type==='item'?itemSheet():sheet.type==='space'?spaceSheet():sheet.type==='recipe'?recipeSheet():sheet.type==='foyer'?foyerSheet():sortSheet());
  if(first)el.scrollTop=0;else el.scrollTop=top;
 }
 function closeSheet(){sheet=null;$('sheet').classList.add('hidden');$('backdrop').classList.add('hidden');render()}
@@ -981,6 +1146,14 @@ document.addEventListener('click',e=>{
   case 'days':if(d){d.exp=addDays(Number(t.dataset.d));d.dateTouched=true;if(sheet)save();rerenderDraft()}break;
   case 'set-space':if(d){d.space=id;if(!sheet)autoDate(d);else save();rerenderDraft()}break;
   case 'set-cat':if(d){d.cat=t.dataset.c;if(!sheet){d.memDays=null;autoDate(d)}else save();rerenderDraft()}break;
+  case 'foyer':openSheet({type:'foyer',merge:true});break;
+  case 'foyer-create':if(!sheet.busy)foyerCreate();break;
+  case 'foyer-joinmode':sheet.mode='join';sheet.err='';renderSheet();{const el=document.querySelector('#sheet .codein');if(el)el.focus()}break;
+  case 'foyer-back':sheet.mode=null;sheet.err='';renderSheet();break;
+  case 'foyer-merge':sheet.merge=!sheet.merge;renderSheet();break;
+  case 'foyer-join':if(!sheet.busy)foyerJoin();break;
+  case 'foyer-share':foyerShare();break;
+  case 'foyer-leave':foyerLeave();break;
   case 'rf':ui.rf=t.dataset.f;renderRecipes();break;
   case 'recipe':openSheet({type:'recipe',idx:Number(t.dataset.r)});break;
   case 'rec-shop':{S.items.forEach(i=>{i._n=norm(i.name)});const x=recipeInfo(sheet.idx),have=new Set(S.shop.filter(s=>!s.done).map(s=>norm(s.name)));let n=0;
@@ -1032,6 +1205,7 @@ document.addEventListener('input',e=>{
  if(t.id==='q'){ui.q=t.value;renderInvList();return}
  if(t.dataset.f==='name'){const d=curDraft();if(d){d.name=t.value;if(sheet)save()}return}
  if(t.dataset.sf==='name'&&sheet&&sheet.d){sheet.d.name=t.value}
+ if(t.dataset.ff==='code'&&sheet){const c=normCode(t.value).slice(0,6);sheet.codeIn=c;const f=c.length>3?c.slice(0,3)+'-'+c.slice(3):c;if(t.value!==f)t.value=f}
 });
 document.addEventListener('change',e=>{
  const t=e.target;
@@ -1053,6 +1227,7 @@ if(native&&AppP){Promise.resolve().then(()=>AppP.addListener('backButton',()=>{
 })).catch(()=>{})}
 
 load();buildScanner();render();
+try{if(FB&&H.code)startSync()}catch(e){}
 try{initNotif()}catch(e){}
 try{schedule()}catch(e){}
 try{webNotify()}catch(e){}
