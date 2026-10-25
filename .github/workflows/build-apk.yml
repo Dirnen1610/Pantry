@@ -31,6 +31,9 @@ jobs:
       - name: Installer les modules
         run: npm install --no-audit --no-fund
 
+      - name: Assembler le pont natif
+        run: npm run bridge
+
       - name: Créer le projet Android
         run: |
           npx cap add android
@@ -57,3 +60,49 @@ jobs:
           body: Télécharge garde-manger.apk depuis ton téléphone Android, puis ouvre-le pour l'installer.
           files: garde-manger.apk
           make_latest: true
+
+  test:
+    needs: apk
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: garde-manger-apk
+
+      - name: Activer l'accélération de l'émulateur
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Lancer l'appli sur un téléphone virtuel
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          disable-animations: true
+          script: |
+            adb install -r garde-manger.apk
+            adb logcat -c
+            adb shell monkey -p com.gardemanger.app -c android.intent.category.LAUNCHER 1
+            sleep 25
+            adb exec-out screencap -p > ecran.png
+            adb logcat -d > logcat-complet.txt || true
+
+      - name: Filtrer les journaux
+        if: always()
+        run: grep -iE "Capacitor|chromium|AndroidRuntime|GM_ERROR|FATAL" logcat-complet.txt > journal.txt || echo "aucune ligne" > journal.txt
+
+      - name: Publier le diagnostic
+        if: always()
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: diagnostic
+          name: Diagnostic (dernier test sur émulateur)
+          body: Capture d'écran et journaux du dernier test automatique. Pas une version à installer.
+          prerelease: true
+          make_latest: false
+          files: |
+            ecran.png
+            journal.txt

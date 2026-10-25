@@ -268,14 +268,19 @@ h4{font-size:15px;font-weight:700;margin:20px 0 10px}
 <div class="toast hidden" id="toast" role="status"></div>
 
 <script>
+window.addEventListener('error',function(e){try{var d=document.getElementById('err');if(!d){d=document.createElement('div');d.id='err';d.style.cssText='position:fixed;left:12px;right:12px;top:40px;z-index:99;background:#E5482F;color:#fff;padding:12px 14px;border-radius:14px;font:600 13px/1.4 system-ui,sans-serif';document.body.appendChild(d)}d.textContent='Erreur : '+(e.message||e.error)+' (ligne '+e.lineno+')';console.error('GM_ERROR',e.message,e.lineno)}catch(x){}});
+</script>
+<script src="native.js" onerror="this.remove()"></script>
+<script>
 (function(){
 'use strict';
 const $=id=>document.getElementById(id);
 const K2='pantry.v2',K1='pantry.v1',KU='pantry.ui';
-const native=!!(window.Capacitor&&Capacitor.isNativePlatform&&Capacitor.isNativePlatform());
-const LN=native?Capacitor.registerPlugin('LocalNotifications'):null;
-const BS=native?Capacitor.registerPlugin('BarcodeScanner'):null;
-const AppP=native?Capacitor.registerPlugin('App'):null;
+const N=window.GM_NATIVE||null;
+let native=false;try{native=!!(N&&N.Capacitor&&N.Capacitor.isNativePlatform())}catch(e){}
+const LN=native?N.LocalNotifications:null;
+const BS=native?N.BarcodeScanner:null;
+const AppP=native?N.App:null;
 
 /* Icônes */
 const P={
@@ -827,7 +832,10 @@ if(native&&AppP){Promise.resolve().then(()=>AppP.addListener('backButton',()=>{
  if(sheet)closeSheet();else if(scan.open)closeScanner();else if(ui.tab!=='inv'){ui.tab='inv';render()}else AppP.exitApp();
 })).catch(()=>{})}
 
-load();buildScanner();initNotif();render();schedule();webNotify();
+load();buildScanner();render();
+try{initNotif()}catch(e){}
+try{schedule()}catch(e){}
+try{webNotify()}catch(e){}
 })();
 </script>
 </body>
