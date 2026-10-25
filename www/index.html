@@ -255,6 +255,38 @@ h4{font-size:15px;font-weight:700;margin:20px 0 10px}
 
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(100px + env(safe-area-inset-bottom));z-index:60;background:var(--night);color:var(--onnight);border-radius:16px;padding:12px 12px 12px 16px;display:flex;gap:10px;align-items:center;font-weight:600;font-size:14px;width:max-content;max-width:calc(100% - 32px);box-shadow:0 10px 30px rgba(0,0,0,.25);animation:fade .2s}
 .toast button{color:var(--orange);font-weight:700;padding:6px 8px;white-space:nowrap}
+/* Recettes */
+.sechead .tl{height:auto;padding:0}
+.rrow{display:flex;gap:10px;overflow-x:auto;margin:0 -16px;padding:0 16px 2px;scrollbar-width:none}
+.rrow::-webkit-scrollbar{display:none}
+.rc{flex:none;width:212px;background:var(--card);border:1px solid var(--line);border-radius:22px;padding:14px;display:flex;flex-direction:column;gap:3px}
+.rc .tp{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px}
+.rc .pic{width:44px;height:44px;border-radius:14px}
+.rc .pill{background:var(--bg)}
+.rc .nm{font-weight:700;font-size:15.5px;line-height:1.25;min-height:39px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.why{font-size:13px;font-weight:600;color:var(--mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:6px}
+.why i{width:8px;height:8px;border-radius:50%;background:var(--fresh);flex:none}
+.why.bad{color:var(--red)}.why.bad i{background:var(--red)}
+.miss{font-size:12px;font-weight:700;align-self:flex-start;padding:3px 8px;border-radius:8px;background:var(--amberbg);color:var(--amberink);margin-top:6px}
+.miss.ok{background:var(--freshbg);color:var(--fresh)}
+.rl .mid .why{margin:3px 0 4px}
+.whybox{display:flex;gap:10px;align-items:flex-start;background:var(--peach);border-radius:18px;padding:12px 14px;margin-top:16px;font-weight:600;font-size:14px;line-height:1.4}
+.whybox svg{color:var(--red);width:20px;height:20px}
+.ings{display:grid;gap:8px}
+.ing{display:flex;gap:12px;align-items:center;padding:12px 14px;border-radius:16px;background:var(--card);border:1px solid var(--line);width:100%}
+.ing .cb{width:26px;height:26px;border-radius:50%;border:2px dashed var(--line);display:grid;place-items:center;flex:none;color:transparent}
+.ing.have .cb{background:var(--teal);border:0;color:#fff}
+.ing .cb svg{width:15px;height:15px}
+.ing .t{min-width:0}
+.ing b{font-weight:700}
+.ing em{font-style:normal;color:var(--mute);font-size:12.5px;font-weight:600}
+.ing small{display:block;color:var(--mute);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ing.need small{color:var(--amberink);font-weight:600}
+.steps{margin:0;padding:0;list-style:none;counter-reset:s;display:grid;gap:12px}
+.steps li{counter-increment:s;display:flex;gap:12px;line-height:1.5}
+.steps li::before{content:counter(s);flex:none;width:28px;height:28px;border-radius:50%;background:var(--sel);color:var(--onsel);display:grid;place-items:center;font-weight:700;font-size:13px}
+.back svg{transform:rotate(180deg)}
+.note{color:var(--mute);font-size:13px;margin:10px 0 0}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 @media (max-width:360px){h1{font-size:26px}.gc{min-height:166px}.lc .step span{min-width:36px}}
 </style>
@@ -355,7 +387,7 @@ function guessCat(name,tags){
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const pl=(n,s,p)=>n>1?p:s;
 const cap=s=>s.charAt(0).toUpperCase()+s.slice(1);
-const norm=s=>String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+const norm=s=>String(s).toLowerCase().replace(/œ/g,'oe').replace(/æ/g,'ae').normalize('NFD').replace(/[\u0300-\u036f]/g,'');
 const iso=d=>{const z=new Date(d.getTime()-d.getTimezoneOffset()*6e4);return z.toISOString().slice(0,10)};
 const days=s=>{const a=new Date();a.setHours(0,0,0,0);const b=new Date(s+'T00:00:00');return Math.round((b-a)/864e5)};
 const addDays=n=>{const d=new Date();d.setDate(d.getDate()+n);return iso(d)};
@@ -374,9 +406,133 @@ function status(i){
 }
 const qtyLabel=i=>i.qty>1?`×${i.qty}`:(i.size||'×1');
 
+/* Recettes : [nom, minutes, catégorie, portions, ingrédients, étapes]
+   Ingrédient : "Libellé|mot1,mot2,-exclu"  ·  "?" devant = facultatif  ·  "mot." = mot exact (pluriel accepté) */
+const CREME='creme,-glacee,-dessert,-brulee,-caramel';
+const PATES='pates.,spaghetti,tagliatelle,linguine,penne,fusilli,coquillettes,macaroni';
+const TOMATES='tomate,coulis,passata,pulpe';
+const TOMATE_FRAICHE='tomate,-coulis,-sauce,-concentre,-pulpe,-passata,-sechee,-ketchup';
+const PDT='pomme de terre,pommes de terre,patate';
+const HACHE='hache,viande hachee';
+const RAPE='rape,emmental,gruyere,comte';
+const PATE_TARTE='pate brisee,pate feuilletee,pate a tarte';
+const LAIT='lait.,-coco';
+const RX=[
+ ['Spaghetti bolognaise',45,'viande',4,['Bœuf haché|'+HACHE,'Spaghetti|'+PATES,'Tomates concassées|'+TOMATES,'Oignon|oignon','?Carotte|carotte','?Ail|ail.','?Parmesan|parmesan'],
+  ['Émince l’oignon, la carotte et l’ail, puis fais-les revenir 5 min dans un filet d’huile.','Ajoute le bœuf haché et laisse dorer en l’émiettant.','Verse les tomates, sale, poivre et laisse mijoter 25 min à feu doux.','Fais cuire les pâtes, égoutte-les et sers avec la sauce et le parmesan.']],
+ ['Hachis parmentier',60,'viande',4,['Bœuf haché|'+HACHE,'Pommes de terre|'+PDT,'Oignon|oignon','Lait|'+LAIT,'?Beurre|beurre','?Fromage râpé|'+RAPE],
+  ['Cuis les pommes de terre épluchées 20 min dans l’eau salée.','Écrase-les avec le lait et le beurre pour faire une purée.','Fais revenir l’oignon puis le bœuf haché, sale et poivre.','Étale la viande dans un plat, recouvre de purée et de fromage, puis enfourne 20 min à 200 °C.']],
+ ['Chili con carne',50,'viande',4,['Bœuf haché|'+HACHE,'Haricots rouges|haricot rouge,haricots rouges','Tomates concassées|'+TOMATES,'Oignon|oignon','?Poivron|poivron','?Riz|riz.'],
+  ['Fais revenir l’oignon et le poivron émincés.','Ajoute le bœuf haché, puis une cuillère de cumin et de paprika.','Verse les tomates et les haricots égouttés, laisse mijoter 30 min.','Sers avec du riz.']],
+ ['Burgers maison',25,'viande',4,['Bœuf haché|'+HACHE,'Pains burger|burger,buns,bun.,pain hamburger','?Salade|salade,laitue,roquette','?Tomate|'+TOMATE_FRAICHE,'?Cheddar|cheddar,emmental,fromage.'],
+  ['Façonne 4 galettes de viande, sale et poivre.','Fais-les cuire 3 à 4 min de chaque côté à la poêle.','Toaste les pains, puis garnis de salade, tomate, viande et fromage.']],
+ ['Boulettes à la sauce tomate',40,'viande',4,['Bœuf haché|'+HACHE,'Œuf|oeuf','Tomates concassées|'+TOMATES,'?Oignon|oignon','?Chapelure|chapelure'],
+  ['Mélange la viande avec l’œuf, l’oignon haché et la chapelure, puis forme des boulettes.','Dore-les dans une poêle huilée.','Ajoute les tomates et laisse mijoter 20 min.']],
+ ['Lasagnes',75,'viande',6,['Bœuf haché|'+HACHE,'Feuilles de lasagne|lasagne','Tomates concassées|'+TOMATES,'Lait|'+LAIT,'Farine|farine','?Fromage râpé|'+RAPE+',mozzarella,parmesan'],
+  ['Prépare une sauce bolognaise : oignon, viande et tomates, 20 min de cuisson.','Fais une béchamel : 40 g de beurre, 40 g de farine, puis 50 cl de lait en fouettant.','Alterne feuilles, sauce et béchamel dans un plat, termine par le fromage.','Enfourne 40 min à 180 °C.']],
+ ['Tomates farcies',60,'viande',4,['Tomates|'+TOMATE_FRAICHE,'Chair à saucisse ou haché|chair a saucisse,'+HACHE,'?Riz|riz.','?Oignon|oignon'],
+  ['Évide les tomates et garde la pulpe.','Mélange la viande avec l’oignon haché, sale, poivre, puis farcis les tomates.','Enfourne 45 min à 180 °C avec le riz et la pulpe au fond du plat.']],
+ ['Poulet au curry et lait de coco',35,'viande',4,['Poulet|poulet,volaille,dinde','Lait de coco|coco','Oignon|oignon','?Riz|riz.','?Courgette|courgette'],
+  ['Coupe le poulet en morceaux et fais-le dorer avec l’oignon.','Ajoute deux cuillères de curry puis le lait de coco.','Laisse mijoter 20 min et sers avec du riz.']],
+ ['Poulet rôti et pommes de terre',75,'viande',4,['Poulet|poulet','Pommes de terre|'+PDT,'?Ail|ail.','?Oignon|oignon'],
+  ['Préchauffe le four à 200 °C.','Dispose le poulet entouré des pommes de terre coupées, de l’ail et de l’oignon, arrose d’huile, sale et poivre.','Enfourne 1 h en arrosant de temps en temps.']],
+ ['Poulet à la crème et aux champignons',30,'viande',4,['Poulet|poulet,volaille,dinde','Crème|'+CREME,'Champignons|champignon','?Oignon|oignon','?Pâtes ou riz|'+PATES+',riz.'],
+  ['Dore le poulet en morceaux, puis réserve-le.','Fais revenir l’oignon et les champignons émincés.','Remets le poulet, ajoute la crème et laisse épaissir 10 min.']],
+ ['Fajitas au poulet',30,'viande',4,['Poulet|poulet,volaille,dinde','Tortillas|tortilla,wrap','Poivron|poivron','Oignon|oignon','?Crème|'+CREME],
+  ['Coupe le poulet, le poivron et l’oignon en lanières.','Fais sauter le tout 10 min avec du paprika et du cumin.','Garnis les tortillas chaudes et ajoute un peu de crème.']],
+ ['Salade César',20,'legume',2,['Poulet|poulet,volaille','Salade|salade,laitue,romaine','?Parmesan|parmesan','?Pain|pain.,croutons'],
+  ['Fais dorer le poulet en lanières.','Fais griller le pain coupé en cubes.','Mélange la salade, le poulet, les croûtons et le parmesan, puis assaisonne avec huile, citron et moutarde.']],
+ ['Quiche lorraine',50,'viande',6,['Lardons|lardon,bacon','Œufs|oeuf','Crème|'+CREME,'Pâte brisée|'+PATE_TARTE,'?Fromage râpé|'+RAPE],
+  ['Préchauffe le four à 180 °C et étale la pâte dans un moule.','Fais dorer les lardons sans matière grasse.','Bats 3 œufs avec la crème, sale peu et poivre.','Répartis les lardons et le fromage, verse l’appareil et enfourne 35 min.']],
+ ['Spaghetti carbonara',20,'viande',4,['Lardons|lardon,pancetta,guanciale,bacon','Spaghetti|'+PATES,'Œufs|oeuf','?Parmesan|parmesan,pecorino'],
+  ['Cuis les pâtes dans l’eau salée.','Fais dorer les lardons.','Bats les œufs avec le fromage et beaucoup de poivre.','Hors du feu, mélange pâtes, lardons et œufs avec un peu d’eau de cuisson.']],
+ ['Croque-monsieur',15,'viande',2,['Jambon|jambon','Pain de mie|pain.','Fromage|'+RAPE+',fromage.,raclette','?Beurre|beurre'],
+  ['Beurre les tranches de pain.','Garnis de jambon et de fromage, puis referme.','Fais dorer 3 min de chaque côté à la poêle, ou 10 min au four.']],
+ ['Saucisses et pommes de terre sautées',35,'viande',4,['Saucisses|saucisse,merguez,chipolata,knack','Pommes de terre|'+PDT,'?Oignon|oignon','?Poivron|poivron'],
+  ['Coupe les pommes de terre en cubes et fais-les sauter 20 min.','Ajoute l’oignon et le poivron émincés.','Fais cuire les saucisses à côté et sers ensemble.']],
+ ['Steak et haricots verts',20,'viande',2,['Steak|steak,entrecote,bavette,faux-filet,boeuf.','Haricots verts|haricot vert,haricots verts','?Ail|ail.'],
+  ['Cuis les haricots verts 10 min à l’eau salée.','Saisis le steak 2 à 3 min de chaque côté.','Fais sauter les haricots avec l’ail et sers.']],
+ ['Saumon en papillote',30,'poisson',2,['Saumon|saumon','?Courgette|courgette','?Citron|citron','?Riz|riz.'],
+  ['Préchauffe le four à 200 °C.','Pose chaque pavé sur du papier cuisson avec la courgette en rondelles et une tranche de citron.','Ferme les papillotes et enfourne 15 à 20 min.']],
+ ['Pâtes au saumon',20,'poisson',4,['Saumon|saumon','Pâtes|'+PATES,'Crème|'+CREME,'?Citron|citron'],
+  ['Cuis les pâtes.','Fais revenir le saumon en dés 3 min.','Ajoute la crème et le zeste de citron, puis mélange avec les pâtes.']],
+ ['Cabillaud à la provençale',30,'poisson',4,['Poisson blanc|cabillaud,colin,lieu.,merlu,poisson blanc','Tomates|tomate','?Courgette|courgette','?Olives|olive'],
+  ['Fais revenir les tomates et la courgette en dés 10 min avec de l’ail et des herbes.','Pose le poisson dessus, couvre et cuis 10 min à feu doux.']],
+ ['Salade de pâtes au thon',15,'poisson',4,['Pâtes|'+PATES,'Thon|thon','?Tomates|'+TOMATE_FRAICHE,'?Maïs|mais.'],
+  ['Cuis les pâtes et laisse-les refroidir.','Mélange-les avec le thon émietté, les tomates et le maïs, puis assaisonne d’une vinaigrette.']],
+ ['Omelette aux champignons',15,'oeufs',2,['Œufs|oeuf','Champignons|champignon','?Fromage|'+RAPE+',fromage.'],
+  ['Fais revenir les champignons émincés.','Bats 4 œufs, sale, poivre et verse sur les champignons.','Ajoute le fromage et plie l’omelette quand elle est encore baveuse.']],
+ ['Shakshuka',30,'oeufs',2,['Œufs|oeuf','Tomates|'+TOMATES,'Poivron|poivron','Oignon|oignon'],
+  ['Fais revenir l’oignon et le poivron 10 min.','Ajoute les tomates, du cumin et du paprika, laisse réduire 10 min.','Creuse des puits, casse-y les œufs et couvre 5 à 8 min.']],
+ ['Ratatouille',60,'legume',4,['Courgette|courgette','Aubergine|aubergine','Poivron|poivron','Tomates|tomate','?Oignon|oignon'],
+  ['Coupe tous les légumes en dés.','Fais revenir l’oignon, puis le poivron, l’aubergine et la courgette.','Ajoute les tomates, de l’ail et des herbes, et laisse mijoter 40 min.']],
+ ['Soupe de légumes',40,'legume',4,['Carottes|carotte','Pommes de terre|'+PDT,'Poireau|poireau','?Oignon|oignon','?Courgette|courgette'],
+  ['Épluche et coupe les légumes en morceaux.','Couvre d’eau, sale et laisse cuire 30 min.','Mixe et ajuste l’assaisonnement.']],
+ ['Tarte aux poireaux',55,'legume',6,['Poireaux|poireau','Pâte brisée|'+PATE_TARTE,'Œufs|oeuf','Crème|'+CREME,'?Lardons|lardon'],
+  ['Émince les poireaux et fais-les fondre 15 min avec un peu de beurre.','Bats 3 œufs avec la crème, sale et poivre.','Étale la pâte, garnis de poireaux, verse l’appareil et enfourne 30 min à 180 °C.']],
+ ['Gratin dauphinois',75,'legume',6,['Pommes de terre|'+PDT,'Crème|'+CREME,'?Lait|'+LAIT,'?Ail|ail.'],
+  ['Coupe les pommes de terre en fines rondelles.','Frotte un plat avec l’ail et dispose les pommes de terre.','Couvre de crème et de lait, sale, poivre et enfourne 1 h à 170 °C.']],
+ ['Gratin de courgettes',45,'legume',4,['Courgettes|courgette','Œufs|oeuf','Crème|'+CREME,'?Fromage râpé|'+RAPE],
+  ['Coupe les courgettes en rondelles et fais-les revenir 10 min.','Bats 2 œufs avec la crème, sale et poivre.','Verse sur les courgettes, ajoute le fromage et enfourne 25 min à 200 °C.']],
+ ['Épinards à la crème et œufs mollets',20,'legume',2,['Épinards|epinard','Crème|'+CREME,'?Œufs|oeuf'],
+  ['Fais tomber les épinards dans une poêle 5 min.','Ajoute la crème, sale, poivre et un peu de muscade.','Sers avec des œufs mollets cuits 6 min.']],
+ ['Salade tomates mozzarella',10,'legume',2,['Tomates|'+TOMATE_FRAICHE,'Mozzarella|mozzarella,burrata','?Basilic|basilic'],
+  ['Coupe les tomates et la mozzarella en tranches.','Alterne-les, puis ajoute le basilic, l’huile d’olive, le sel et le poivre.']],
+ ['Wok de légumes',20,'legume',2,['Poivron|poivron','Carottes|carotte','?Brocoli|brocoli','?Nouilles|nouille,udon,ramen','?Poulet|poulet'],
+  ['Coupe les légumes en fines lanières.','Fais-les sauter à feu vif 5 min avec un peu d’huile.','Ajoute les nouilles cuites et la sauce soja.']],
+ ['Gratin de pâtes au jambon',35,'epicerie',4,['Pâtes|'+PATES,'Jambon|jambon','Crème|'+CREME,'?Fromage râpé|'+RAPE],
+  ['Cuis les pâtes un peu fermes.','Mélange-les avec le jambon coupé et la crème.','Couvre de fromage et gratine 15 min à 200 °C.']],
+ ['Risotto aux champignons',35,'epicerie',4,['Riz|riz.','Champignons|champignon','Oignon|oignon','?Parmesan|parmesan'],
+  ['Fais revenir l’oignon, puis le riz jusqu’à ce qu’il devienne nacré.','Ajoute du bouillon louche par louche pendant 18 min en remuant.','Incorpore les champignons poêlés et le parmesan.']],
+ ['Riz cantonais',25,'epicerie',4,['Riz|riz.','Œufs|oeuf','?Jambon|jambon','?Petits pois|petit pois,petits pois'],
+  ['Cuis le riz, la veille si possible.','Fais une omelette fine et coupe-la en lanières.','Fais sauter le riz avec le jambon, les petits pois et l’omelette, puis ajoute de la sauce soja.']],
+ ['Salade de lentilles',30,'epicerie',4,['Lentilles|lentille','?Oignon|oignon','?Carotte|carotte','?Lardons|lardon'],
+  ['Cuis les lentilles 20 min avec la carotte en dés.','Égoutte, puis ajoute l’oignon émincé et les lardons dorés.','Assaisonne d’une vinaigrette moutardée.']],
+ ['Pizza maison',30,'epicerie',4,['Pâte à pizza|pate a pizza','Sauce tomate|coulis,passata,sauce tomate,pulpe','Mozzarella|mozzarella','?Jambon|jambon','?Champignons|champignon'],
+  ['Étale la pâte et recouvre-la de sauce tomate.','Ajoute la mozzarella, le jambon et les champignons.','Enfourne 12 à 15 min à 240 °C.']],
+ ['Crêpes',30,'epicerie',4,['Œufs|oeuf','Lait|'+LAIT,'Farine|farine','?Beurre|beurre'],
+  ['Mélange 250 g de farine, 3 œufs et une pincée de sel.','Ajoute 50 cl de lait petit à petit, puis le beurre fondu.','Laisse reposer 30 min, puis cuis les crêpes dans une poêle chaude.']],
+ ['Pain perdu',15,'epicerie',2,['Pain|pain.,brioche,baguette','Œufs|oeuf','Lait|'+LAIT],
+  ['Bats 2 œufs avec 20 cl de lait et un peu de sucre.','Trempe les tranches de pain.','Dore-les à la poêle avec du beurre.']],
+ ['Banana bread',60,'fruit',8,['Bananes mûres|banane','Œufs|oeuf','Farine|farine','?Beurre|beurre'],
+  ['Écrase 3 bananes avec 2 œufs, 80 g de sucre et 80 g de beurre fondu.','Ajoute 200 g de farine et un sachet de levure.','Verse dans un moule et enfourne 50 min à 180 °C.']],
+ ['Clafoutis aux fruits',50,'fruit',6,['Fruits|cerise,abricot,prune,framboise,myrtille,poire,mirabelle','Œufs|oeuf','Lait|'+LAIT,'Farine|farine'],
+  ['Dispose les fruits dans un plat beurré.','Mélange 3 œufs, 80 g de sucre, 80 g de farine et 40 cl de lait.','Verse sur les fruits et enfourne 40 min à 180 °C.']],
+ ['Compote de pommes',25,'fruit',4,['Pommes|pomme.,-terre'],
+  ['Épluche et coupe les pommes.','Cuis-les 20 min à couvert avec un fond d’eau et un peu de cannelle.','Écrase à la fourchette ou mixe.']],
+ ['Tarte aux pommes',50,'fruit',6,['Pommes|pomme.,-terre','Pâte brisée|'+PATE_TARTE,'?Beurre|beurre'],
+  ['Étale la pâte dans un moule.','Dispose les pommes en fines lamelles, saupoudre de sucre et de petits morceaux de beurre.','Enfourne 35 min à 180 °C.']],
+ ['Smoothie aux fruits',5,'fruit',2,['Banane|banane','?Fruits rouges ou mangue|fraise,framboise,myrtille,mangue','?Lait ou yaourt|lait.,yaourt,-coco'],
+  ['Mets les fruits coupés dans un blender.','Ajoute le lait ou le yaourt et mixe.']],
+ ['Bol de yaourt aux fruits',5,'laitier',1,['Yaourt|yaourt,skyr,fromage blanc','Fruits|fraise,banane,framboise,myrtille,kiwi,mangue,peche,pomme.,-terre'],
+  ['Verse le yaourt dans un bol.','Ajoute les fruits coupés, un peu de miel et des céréales.']]
+];
+const reEsc=s=>s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+function kwRe(k){const exact=k.endsWith('.');k=norm(exact?k.slice(0,-1):k);return new RegExp('\\b'+reEsc(k)+(exact?'s?\\b':''))}
+const RECIPES=RX.map(([name,min,cat,serv,ings,steps])=>({name,min,cat,serv,steps,ing:ings.map(s=>{
+ const opt=s[0]==='?';if(opt)s=s.slice(1);const [label,kw]=s.split('|');const pos=[],neg=[];
+ kw.split(',').map(x=>x.trim()).filter(Boolean).forEach(x=>{if(x[0]==='-')neg.push(kwRe(x.slice(1)));else pos.push(kwRe(x))});
+ return {label,opt,pos,neg};
+})}));
+function recipeInfo(idx){
+ const r=RECIPES[idx],used=new Set();
+ const ings=r.ing.map(g=>{
+  const its=S.items.filter(i=>!used.has(i.id)&&g.pos.some(x=>x.test(i._n))&&!g.neg.some(x=>x.test(i._n))).sort(byExp);
+  const it=its[0]||null;if(it)used.add(it.id);return {g,it};
+ });
+ const req=ings.filter(x=>!x.g.opt),have=req.filter(x=>x.it),missing=req.filter(x=>!x.it);
+ const urgent=ings.filter(x=>x.it&&days(x.it.exp)<=3).sort((a,b)=>byExp(a.it,b.it));
+ const soon=ings.filter(x=>x.it&&days(x.it.exp)<=7).length;
+ const ratio=req.length?have.length/req.length:0;
+ const score=ratio*100+urgent.length*45+soon*12+ings.filter(x=>x.g.opt&&x.it).length*3-missing.length*10;
+ return {idx,r,ings,req,have,missing,urgent,ratio,score};
+}
+function allRecipes(){S.items.forEach(i=>{i._n=norm(i.name)});return RECIPES.map((_,k)=>recipeInfo(k)).sort((a,b)=>b.score-a.score)}
+function suggestions(){return allRecipes().filter(x=>x.have.length>=1&&x.ratio>=0.5&&x.missing.length<=3)}
+
 /* Données */
 let S={items:[],spaces:[],codes:{},shop:[],log:[]};
-let ui={tab:'inv',view:'grid',filter:'all',q:'',sort:'exp',lastSpace:null,notif:'unknown'};
+let ui={rf:'sug',tab:'inv',view:'grid',filter:'all',q:'',sort:'exp',lastSpace:null,notif:'unknown'};
 function load(){
  let d=null;try{d=JSON.parse(localStorage.getItem(K2)||'null')}catch(e){}
  if(d){S=Object.assign(S,d)}
@@ -397,7 +553,7 @@ function load(){
  S.items.forEach(i=>{if(!spaceExists(i.space))i.space=S.spaces[0].id;if(!CATS[i.cat])i.cat=guessCat(i.name);if(!i.qty)i.qty=1});
  try{const u=JSON.parse(localStorage.getItem(KU)||'{}');['view','sort','lastSpace'].forEach(k=>{if(u[k]!=null)ui[k]=u[k]})}catch(e){}
 }
-function persist(){try{localStorage.setItem(K2,JSON.stringify(S))}catch(e){}}
+function persist(){try{localStorage.setItem(K2,JSON.stringify(S,(k,v)=>k==='_n'?undefined:v))}catch(e){}}
 function saveUI(){try{localStorage.setItem(KU,JSON.stringify({view:ui.view,sort:ui.sort,lastSpace:ui.lastSpace}))}catch(e){}}
 let schedT=null;
 function save(){persist();clearTimeout(schedT);schedT=setTimeout(schedule,700)}
@@ -480,6 +636,7 @@ function renderInv(){
   <div class="st count"><div class="n">${S.items.length}</div><div class="l">${pl(S.items.length,'article','articles')} · ${S.spaces.length} ${pl(S.spaces.length,'espace','espaces')}</div></div>
   <div class="st waste"><span class="ic">${ic('leaf')}</span><span>${thrown} ${pl(thrown,'produit jeté','produits jetés')} cette semaine</span></div>
  </div>
+ ${recBlock(suggestions(),'Idées recettes')}
  <div class="chips" role="group" aria-label="Filtrer par espace">${chip('all','Tous',S.items.length)}${S.spaces.map(s=>chip(s.id,s.name,S.items.filter(i=>i.space===s.id).length)).join('')}</div>
  <div class="sechead"><h2 id="cnt"></h2><div class="seg" role="group" aria-label="Affichage"><button data-act="view" data-v="grid" aria-pressed="${ui.view==='grid'}" aria-label="Vue grille">${ic('grid')}</button><button data-act="view" data-v="list" aria-pressed="${ui.view==='list'}" aria-label="Vue liste">${ic('list')}</button></div></div>
  <div id="inv"></div>`;
@@ -546,7 +703,57 @@ function renderAlerts(){
  $('app').innerHTML=`
  <header class="top"><div><p class="eyebrow">${u} ${pl(u,'produit','produits')} à consommer vite</p><h1>Alertes</h1></div></header>
  ${notifCard()}
+ ${recBlock(suggestions().filter(x=>x.urgent.length),'Pour les sauver')}
  ${body||'<div class="empty" style="margin-top:18px"><b>Rien à signaler</b>Aucun produit n’expire dans les 7 prochains jours.</div>'}`;
+}
+
+/* Rendu : recettes */
+function recWhy(x){
+ if(x.urgent.length){const it=x.urgent[0].it;return `<span class="why bad"><i></i>${esc(it.name)} : ${status(it).text.toLowerCase()}</span>`}
+ const h=x.ings.find(y=>y.it);return h?`<span class="why"><i></i>Avec ${esc(h.it.name)}</span>`:'<span class="why">Aucun ingrédient chez toi</span>';
+}
+const recMiss=x=>x.missing.length?`<span class="miss">Il manque ${x.missing.length} ${pl(x.missing.length,'ingrédient','ingrédients')}</span>`:'<span class="miss ok">Tu as tout</span>';
+function recCard(x){
+ const c=CATS[x.r.cat]||CATS.autre;
+ return `<button class="rc" data-act="recipe" data-r="${x.idx}"><span class="tp"><span class="pic c-${c.c}">${ic(c.i)}</span><span class="pill">${x.r.min} min</span></span><span class="nm">${esc(x.r.name)}</span>${recWhy(x)}${recMiss(x)}</button>`;
+}
+function recRow(x){
+ const c=CATS[x.r.cat]||CATS.autre;
+ return `<div class="lc rl" role="button" tabindex="0" data-act="recipe" data-r="${x.idx}"><span class="pic c-${c.c}">${ic(c.i)}</span><div class="mid"><span class="nm">${esc(x.r.name)}</span>${recWhy(x)}${recMiss(x)}</div><span class="pill" style="background:var(--bg)">${x.r.min} min</span></div>`;
+}
+function recBlock(list,title){
+ if(!list.length)return '';
+ return `<div class="sechead"><h2>${title}</h2><button class="tl" data-act="tab" data-tab="recipes">Tout voir ${ic('chev')}</button></div><div class="rrow">${list.slice(0,6).map(recCard).join('')}</div>`;
+}
+function renderRecipes(){
+ const all=allRecipes(),sug=all.filter(x=>x.have.length>=1&&x.ratio>=0.5&&x.missing.length<=3);
+ const sets={gaspi:sug.filter(x=>x.urgent.length),ready:all.filter(x=>!x.missing.length&&x.have.length),sug,all};
+ if(!sets[ui.rf])ui.rf='sug';
+ const F=[['sug','Pour toi'],['gaspi','Anti-gaspi'],['ready','Tu as tout'],['all','Toutes']];
+ const list=sets[ui.rf];
+ const empty={gaspi:'Aucun produit qui expire dans les 3 jours ne correspond à une recette. Bonne nouvelle !',ready:'Il manque au moins un ingrédient pour chaque recette. Regarde « Pour toi » : il en manque peu.',sug:'Pas encore d’idée avec tes produits. Scanne quelques produits pour avoir des suggestions.',all:''}[ui.rf];
+ $('app').innerHTML=`
+ <header class="top"><div style="display:flex;gap:12px;align-items:flex-start"><button class="ib back" data-act="tab" data-tab="inv" aria-label="Retour à l’inventaire">${ic('chev')}</button><div><p class="eyebrow">Selon ce que tu as</p><h1>Recettes</h1></div></div></header>
+ <div class="chips" role="group" aria-label="Filtrer les recettes">${F.map(([k,l])=>`<button class="chip" data-act="rf" data-f="${k}" aria-pressed="${ui.rf===k}">${l}<span class="cnt">${sets[k].length}</span></button>`).join('')}</div>
+ <div class="list" style="margin-top:16px">${list.length?list.map(recRow).join(''):`<div class="empty"><b>Rien pour l’instant</b>${empty}</div>`}</div>`;
+}
+function recipeSheet(){
+ S.items.forEach(i=>{i._n=norm(i.name)});
+ const x=recipeInfo(sheet.idx),c=CATS[x.r.cat]||CATS.autre;
+ const head=`<div class="ph"><span class="pic c-${c.c}">${ic(c.i)}</span><div style="min-width:0"><h2 class="shh">${esc(x.r.name)}</h2><p class="sub">${x.r.min} min · ${x.r.serv} ${pl(x.r.serv,'personne','personnes')}</p></div></div>`;
+ if(sheet.cook){
+  const its=x.ings.filter(y=>y.it);
+  return head+`<h4>Quels produits as-tu utilisés ?</h4><div class="ings">${its.map(({it})=>{const on=sheet.sel.has(it.id);return `<button class="ing ${on?'have':''}" data-act="cook-tog" data-id="${it.id}" aria-pressed="${on}"><span class="cb">${ic('check')}</span><span class="t"><b>${esc(it.name)}</b><small>${esc(spaceOf(it.space).name)}${it.qty>1?` · il en reste ${it.qty}, on en retire 1`:''}</small></span></button>`}).join('')}</div>
+  <p class="note">Les produits cochés sortent de l’inventaire. Décoche ceux dont il te reste assez.</p>
+  <div class="acts"><button class="btn sec" data-act="cook-cancel"><span>Retour</span></button><button class="btn pri" data-act="cook-ok">${ic('check')}<span>Retirer ${sheet.sel.size} ${pl(sheet.sel.size,'produit','produits')}</span></button></div>`;
+ }
+ const box=x.urgent.length?`<div class="whybox">${ic('alert')}<span>${x.urgent.map(y=>`${esc(y.it.name)} (${status(y.it).text.toLowerCase()})`).join(', ')} : c’est le moment de ${x.urgent.length>1?'les':'le'} cuisiner.</span></div>`:'';
+ const miss=x.missing.length;
+ return head+box+`<h4>Ingrédients</h4><div class="ings">${x.ings.map(({g,it})=>`<div class="ing ${it?'have':'need'}"><span class="cb">${ic('check')}</span><span class="t"><b>${esc(g.label)}</b>${g.opt?' <em>facultatif</em>':''}<small>${it?`${esc(it.name)} · ${esc(spaceOf(it.space).name)} · ${status(it).text.toLowerCase()}`:'À acheter'}</small></span></div>`).join('')}</div>
+ <p class="note">Sel, poivre, huile, sucre et épices : on suppose que tu en as.</p>
+ ${miss?`<button class="btn sec" style="width:100%;margin-top:12px" data-act="rec-shop">${ic('cart')}<span>Mettre ${pl(miss,'le manquant','les '+miss+' manquants')} aux courses</span></button>`:''}
+ <h4>Préparation</h4><ol class="steps">${x.r.steps.map(t=>`<li>${esc(t)}</li>`).join('')}</ol>
+ <div class="acts"><button class="btn pri" data-act="rec-cook">${ic('check')}<span>J’ai cuisiné ça</span></button></div>`;
 }
 
 function renderNav(){
@@ -554,7 +761,7 @@ function renderNav(){
  const b=(id,lab,i)=>`<button data-act="tab" data-tab="${id}" ${t===id?'aria-current="page"':''}>${ic(i)}<span>${lab}</span>${id==='alerts'&&u?'<span class="nd"></span>':''}</button>`;
  $('nav').innerHTML=b('inv','Inventaire','box')+b('spaces','Espaces','grid')+`<button class="fab" data-act="scan" aria-label="Scanner un produit">${ic('scan')}</button>`+b('shop','Courses','cart')+b('alerts','Alertes','bell');
 }
-function render(){({inv:renderInv,spaces:renderSpaces,shop:renderShop,alerts:renderAlerts})[ui.tab]();renderNav()}
+function render(){({inv:renderInv,spaces:renderSpaces,shop:renderShop,alerts:renderAlerts,recipes:renderRecipes}[ui.tab]||renderInv)();renderNav()}
 
 /* Fiche produit (partagée entre scanner et détail) */
 let sheet=null;
@@ -601,8 +808,8 @@ function sortSheet(){
 function openSheet(s){sheet=s;$('backdrop').classList.remove('hidden');$('sheet').classList.remove('hidden');renderSheet(true)}
 function renderSheet(first){
  const el=$('sheet'),top=el.scrollTop;
- el.setAttribute('aria-label',sheet.type==='item'?'Produit':sheet.type==='space'?'Espace':'Tri');
- el.innerHTML='<div class="grab"></div>'+(sheet.type==='item'?itemSheet():sheet.type==='space'?spaceSheet():sortSheet());
+ el.setAttribute('aria-label',{item:'Produit',space:'Espace',recipe:'Recette',sort:'Tri'}[sheet.type]);
+ el.innerHTML='<div class="grab"></div>'+(sheet.type==='item'?itemSheet():sheet.type==='space'?spaceSheet():sheet.type==='recipe'?recipeSheet():sortSheet());
  if(first)el.scrollTop=0;else el.scrollTop=top;
 }
 function closeSheet(){sheet=null;$('sheet').classList.add('hidden');$('backdrop').classList.add('hidden');render()}
@@ -774,6 +981,19 @@ document.addEventListener('click',e=>{
   case 'days':if(d){d.exp=addDays(Number(t.dataset.d));d.dateTouched=true;if(sheet)save();rerenderDraft()}break;
   case 'set-space':if(d){d.space=id;if(!sheet)autoDate(d);else save();rerenderDraft()}break;
   case 'set-cat':if(d){d.cat=t.dataset.c;if(!sheet){d.memDays=null;autoDate(d)}else save();rerenderDraft()}break;
+  case 'rf':ui.rf=t.dataset.f;renderRecipes();break;
+  case 'recipe':openSheet({type:'recipe',idx:Number(t.dataset.r)});break;
+  case 'rec-shop':{S.items.forEach(i=>{i._n=norm(i.name)});const x=recipeInfo(sheet.idx),have=new Set(S.shop.filter(s=>!s.done).map(s=>norm(s.name)));let n=0;
+   x.missing.forEach(m=>{if(!have.has(norm(m.g.label))){S.shop.unshift({name:m.g.label,done:false});n++}});
+   save();toast(n?`${n} ${pl(n,'ingrédient ajouté','ingrédients ajoutés')} aux courses`:'Déjà dans ta liste de courses');break}
+  case 'rec-cook':{S.items.forEach(i=>{i._n=norm(i.name)});const x=recipeInfo(sheet.idx);sheet.cook=true;sheet.sel=new Set(x.ings.filter(y=>y.it&&!y.g.opt).map(y=>y.it.id));renderSheet(true);break}
+  case 'cook-tog':if(sheet.sel.has(id))sheet.sel.delete(id);else sheet.sel.add(id);renderSheet();break;
+  case 'cook-cancel':sheet.cook=false;renderSheet(true);break;
+  case 'cook-ok':{const snap=JSON.stringify(S.items,(k,v)=>k==='_n'?undefined:v),logN=S.log.length,now=Date.now();let n=0;
+   sheet.sel.forEach(iid=>{const it=S.items.find(i=>i.id===iid);if(!it)return;n++;S.log.push({t:now,k:'conso',name:it.name});
+    if(it.qty>1)it.qty--;else S.items=S.items.filter(i=>i.id!==iid)});
+   const nm=RECIPES[sheet.idx].name;save();closeSheet();
+   toast(`${nm} : ${n} ${pl(n,'produit retiré','produits retirés')}`,{label:'Annuler',fn:()=>{S.items=JSON.parse(snap);S.log=S.log.slice(0,logN);save();render();toast('Annulé')}});break}
   case 'consume':removeItem('conso');break;
   case 'throw':removeItem('jete');break;
   case 'sheet-close':closeSheet();break;
