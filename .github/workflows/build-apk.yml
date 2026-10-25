@@ -1,0 +1,56 @@
+name: Fabriquer l'APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Installer les modules
+        run: npm install --no-audit --no-fund
+
+      - name: Créer le projet Android
+        run: |
+          npx cap add android
+          npx cap sync android
+
+      - name: Compiler l'APK
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon --stacktrace
+          cp app/build/outputs/apk/debug/app-debug.apk ../garde-manger.apk
+
+      - name: Garder l'APK dans le résultat de la compilation
+        uses: actions/upload-artifact@v4
+        with:
+          name: garde-manger-apk
+          path: garde-manger.apk
+
+      - name: Publier l'APK (page Releases)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: Garde-manger (version ${{ github.run_number }})
+          body: Télécharge garde-manger.apk depuis ton téléphone Android, puis ouvre-le pour l'installer.
+          files: garde-manger.apk
+          make_latest: true

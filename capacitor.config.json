@@ -1,0 +1,13 @@
+{
+  "appId": "com.gardemanger.app",
+  "appName": "Garde-manger",
+  "webDir": "www",
+  "backgroundColor": "#F6F1EA",
+  "android": {
+    "adjustMarginsForEdgeToEdge": "auto"
+  },
+  "plugins": {
+    "CapacitorHttp": { "enabled": true },
+    "LocalNotifications": { "iconColor": "#FF6B2C" }
+  }
+}
